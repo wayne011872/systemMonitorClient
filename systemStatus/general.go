@@ -7,10 +7,12 @@ import (
 	"time"
 	"sort"
 	"strings"
+	"strconv"
 	
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
+	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/process"
 
 	"github.com/wayne011872/systemMonitorClient/libs"
@@ -145,4 +147,74 @@ func GetProcessRank(process []*mydao.ProcessStatus) {
 		p.Rank = uint8(count)
 		count += 1
 	}
+}
+
+func GetPartitionStatus(path string) (*mydao.DiskStatus, error) {
+	stat,err := disk.Usage(path)
+	if err != nil {
+		return nil,err;
+	}
+	totalSize:=strconv.FormatUint(stat.Total,10)
+	availableSize:=strconv.FormatUint(stat.Free,10)
+	usedSize := strconv.FormatUint(stat.Used,10)
+	return &mydao.DiskStatus{
+		Drive: path,
+		TotalSize: totalSize,
+		AvailableSize: availableSize,
+		UsedSize: usedSize,
+		UsedRate: fmt.Sprintf("%.2f",float64(stat.Used)/float64(stat.Total)*100),
+	},nil
+}
+
+func GetDiskStatus()([]*mydao.DiskStatus, error) {
+	partitionInfo,err:=disk.Partitions(true)
+	if err != nil {
+		return nil,err;
+	}
+	diskStatus :=[]*mydao.DiskStatus{}
+	for _, partition := range partitionInfo {
+		partitionStat,err := GetPartitionStatus(partition.Mountpoint)
+		if(err != nil){
+			return nil,err
+		}
+		diskStatus = append(diskStatus,partitionStat)
+	}
+	return diskStatus,nil
+}
+
+func GetSysInfo() (*mydao.SysInfo, error) {
+	cpuUsage ,err := GetCpuPercent()
+	if err != nil {
+		return nil, err
+	}
+	errorRate, _ := strconv.Atoi(os.Getenv(("ERROR_RATE")))
+	netErrorKbps, _ := strconv.Atoi(os.Getenv(("NETWORK_ERROR_KPBS")))
+	networkName := os.Getenv(("NETWORK_NAME"))
+	netIn, netOut := GetNetPerSecond(GetNetInfo, networkName)
+	nowTimeStr := libs.GetNowTimeStr()
+	memStatus, err := GetMemoryStatus()
+	if err != nil {
+		return nil, err
+	}
+	diskStatus, err := GetDiskStatus()
+	if err != nil {
+		return nil, err
+	}
+	processesMem, err := GetProcessesMemory()
+	if err != nil {
+		return nil, err
+	}
+	sysInfo := &mydao.SysInfo{
+		Ip:            GetLocalIP(),
+		CpuUsage:      cpuUsage,
+		MemoryStatus:  memStatus,
+		MemoryProcess: processesMem,
+		DiskStatus:    diskStatus,
+		NetworkIn:     netIn,
+		NetworkOut:    netOut,
+		DataTime:      nowTimeStr,
+		ErrorRate:     errorRate,
+		NetErrorKbps:  netErrorKbps,
+	}
+	return sysInfo, nil
 }

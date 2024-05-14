@@ -9,13 +9,13 @@ import (
 
 	"github.com/wayne011872/systemMonitorClient/api"
 	"github.com/wayne011872/systemMonitorClient/libs"
-	ss "github.com/wayne011872/systemMonitorClient/windows/systemStatus"
+	ss "github.com/wayne011872/systemMonitorClient/systemStatus"
 )
 
 const timeLayoutStr string  = "2006-01-02 15:04:05"
 func main(){
 	for{
-		err := godotenv.Load("../.env")
+		err := godotenv.Load("./.env")
 		if err != nil{
 			panic("Error loading .env file")
 		}
@@ -25,6 +25,7 @@ func main(){
 		if err != nil {
 			panic(err)
 		}
+		fmt.Println(systemInfo)
 		jSysInfo,err := libs.TransferSysInfoToJson(systemInfo)
 		if err != nil {
 			panic(err)
